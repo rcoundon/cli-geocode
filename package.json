@@ -1,6 +1,6 @@
 {
   "name": "cli-geocode",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Address geocoder CLI using Here Maps geocoding service for a provided Excel file",
   "author": "Ross Coundon @rcoundon",
   "bin": {
