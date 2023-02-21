@@ -11,7 +11,7 @@ $ npm install -g cli-geocode
 $ cli-geocode COMMAND
 running command...
 $ cli-geocode (--version)
-cli-geocode/0.0.0 darwin-arm64 node-v18.14.0
+cli-geocode/0.1.0 darwin-arm64 node-v18.14.0
 $ cli-geocode --help [COMMAND]
 USAGE
   $ cli-geocode COMMAND

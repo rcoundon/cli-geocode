@@ -1,6 +1,6 @@
 {
   "name": "cli-geocode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Address geocoder CLI using Here Maps geocoding service for a provided Excel file",
   "author": "Ross Coundon @rcoundon",
   "bin": {
@@ -17,7 +17,7 @@
     "/oclif.manifest.json"
   ],
   "dependencies": {
-    "@oclif/core": "2.2.1",
+    "@oclif/core": "2.3.0",
     "@oclif/errors": "1.3.6",
     "@oclif/plugin-help": "5.2.5",
     "@oclif/plugin-plugins": "2.3.2",
