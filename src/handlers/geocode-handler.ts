@@ -1,12 +1,10 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { SingleBar } from 'cli-progress';
-import * as colors from 'ansi-colors';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import * as listr from 'listr';
+import { join } from 'path';
+import { ListrTaskWrapper } from 'listr';
 
 import { parseExcelWorkbookSheet, convertJsonToCsv, createExcelWorkbook } from '../services/file-parser/excelUtils';
 import { geocodeBatch, getGeocodeResult, getGeocodeStatus } from '../services/geocoder';
-import { join } from 'path';
-
-let progressBar: SingleBar;
 
 type Geocodable = {
   recId: string;
@@ -27,74 +25,103 @@ type InputFormat = {
   country: 'IE';
 };
 
-export async function handleGeocodeFile(filename: string, apiKey: string | null, outputFile?: string) {
-  const outputFilePath = outputFile || join('output', `${new Date().valueOf()}-geocode.xlsx`);
-  mkdirSync('temp', {
-    recursive: true,
-  });
-  mkdirSync('output', {
-    recursive: true,
-  });
-  progressBar = new SingleBar({
-    format: 'CLI Progress |' + colors.cyan('{bar}') + '| {percentage}% || Status: {status}',
-    barCompleteChar: '\u2588',
-    barIncompleteChar: '\u2591',
-    hideCursor: true,
-  });
-  progressBar.start(100, 0);
-  const file = readFileSync(filename);
-  progressBar.increment(5, {
-    status: 'Parsing Excel document',
-  });
-  const parsedWorkbook = parseExcelWorkbookSheet<InputFormat>(file);
-
-  const geocodable = createGeocodeStructure(parsedWorkbook);
-  progressBar.increment(5, {
-    status: 'Converting to geocodable structure',
-  });
-
-  progressBar.increment(5, {
-    status: 'Creating geocode batch request string',
-  });
-  const geocodableCsv = convertJsonToCsv(geocodable);
-
-  progressBar.increment(5, {
-    status: 'Submitting geocode batch request',
-  });
-  const batchResult = await geocodeBatch(geocodableCsv, apiKey);
-  const requestId = batchResult.Response.MetaInfo.RequestId;
-  progressBar.increment(5, {
-    status: `RequestId ${requestId} accepted`,
-  });
-
-  const done = await retryUntilCompleted(requestId, apiKey, 20);
-  if (done) {
-    const result = await getGeocodeResult(requestId, apiKey);
-    const zipFilename = `${new Date().valueOf()}-geocode-results.zip`;
-    writeFileSync(`temp/${zipFilename}`, Buffer.from(result));
-    await createExcelWorkbook(zipFilename, outputFilePath);
-
-    progressBar.update(100, {
-      status: 'geocode complete',
-    });
-    progressBar.stop();
-    console.log(`Results file ${outputFilePath} created`);
-  } else {
-    console.log('Something unexpected went wrong');
+function createFolderIfNotExists(folderName: string) {
+  if (!existsSync(folderName)) {
+    mkdirSync(folderName);
   }
 }
 
-async function retryUntilCompleted(requestId: string, apiKey: string | null, maxRetries = 10): Promise<boolean> {
+export async function handleGeocodeFile(filename: string, apiKey: string | null, outputFile?: string) {
+  const outputFilePath = outputFile ? join('output', outputFile) : join('output', `${new Date().valueOf()}-geocode.xlsx`);
+  const tasks = new listr.default(
+    [
+      {
+        title: 'Initialising directory structure',
+        task: () => {
+          createFolderIfNotExists('temp');
+          createFolderIfNotExists('output');
+        },
+      },
+      {
+        title: 'Parsing Excel input file',
+        task: (ctx) => {
+          const file = readFileSync(filename);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          ctx.parsedWorkbook = parseExcelWorkbookSheet<InputFormat>(file);
+        },
+      },
+      {
+        title: 'Converting to geocodable structure',
+        task: (ctx) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-argument
+          ctx.geocodable = createGeocodeStructure(ctx.parsedWorkbook);
+        },
+      },
+      {
+        title: 'Converting to CSV for batch submission',
+        task: (ctx) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-argument
+          ctx.geocodableCsv = convertJsonToCsv(ctx.geocodable);
+        },
+      },
+      {
+        title: 'Submitting geocode batch request',
+        task: async (ctx) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-argument
+          ctx.batchResult = await geocodeBatch(ctx.geocodableCsv, apiKey);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
+          ctx.requestId = ctx.batchResult.Response.MetaInfo.RequestId;
+        },
+      },
+      {
+        title: 'Waiting for geocode batch to process',
+        task: async (ctx, task) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
+          await retryUntilCompleted(ctx.requestId, apiKey, task, 20);
+        },
+      },
+      {
+        title: 'Getting geocode result',
+        task: async (ctx) => {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-argument
+          ctx.result = await getGeocodeResult(ctx.requestId, apiKey);
+        },
+      },
+      {
+        title: 'Writing results to disk',
+        task: async (ctx, task) => {
+          const zipFilename = `${new Date().valueOf()}-geocode-results.zip`;
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-member-access
+          writeFileSync(`temp/${zipFilename}`, Buffer.from(ctx.result));
+          task.title = `Writing ${outputFilePath} to disk`;
+          await createExcelWorkbook(zipFilename, outputFilePath);
+        },
+      },
+    ],
+    {
+      exitOnError: true,
+    },
+  );
+
+  await tasks.run();
+}
+
+async function retryUntilCompleted(
+  requestId: string,
+  apiKey: string | null,
+  task: ListrTaskWrapper,
+  maxRetries = 50,
+): Promise<boolean> {
   let retryCount = 0;
   let response;
   let status = '';
   do {
-    // console.log(`Checking status, attempt no. ${retryCount + 1}`);
+    task.title = `Checking status, attempt no. ${retryCount + 1}`;
     response = await getGeocodeStatus(requestId, apiKey);
+    task.title = `Checking status, attempt no. ${retryCount + 1} status: ${response.Response.Status}`;
     status = response.Response.Status;
-    progressBar.increment(5);
     retryCount++;
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   } while (status !== 'completed' && retryCount < maxRetries);
 
   if (status === 'completed') {
