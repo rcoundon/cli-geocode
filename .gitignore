@@ -9,3 +9,9 @@ node_modules
 oclif.manifest.json
 temp
 *.xlsx
+/.idea/sonarlint/issuestore/b/6/b60e929d66263280d1d7e414cdc836542f369d74
+/.idea/sonarlint/issuestore/index.pb
+/.idea/prettier.xml
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/vcs.xml
+/.idea/workspace.xml
