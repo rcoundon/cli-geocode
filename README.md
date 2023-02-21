@@ -1,5 +1,7 @@
-oclif-hello-world
-=================
+# cli-geocode
+
+A hastily assembled CLI geocoding tool using the HERE Maps batch geocoding API 
+
 
 <!-- toc -->
 * [Usage](#usage)
@@ -8,14 +10,7 @@ oclif-hello-world
 <!-- usage -->
 ```sh-session
 $ npm install -g cli-geocode
-$ cli-geocode COMMAND
-running command...
-$ cli-geocode (--version)
-cli-geocode/0.1.0 darwin-arm64 node-v18.14.0
-$ cli-geocode --help [COMMAND]
-USAGE
-  $ cli-geocode COMMAND
-...
+$ cli-geocode geocode --help
 ```
 <!-- usagestop -->
 
@@ -54,7 +49,8 @@ DESCRIPTION
   Note: You may get multiple results in the output for a single line when the HERE Maps Geocoder returns multiple
   results for a provided address.
   When this is the case the seqLength field will be > 0 for a given recId
-
+    
+  Fields in the output are described in the HERE documentation [here](https://developer.here.com/documentation/batch-geocoder/dev_guide/topics/read-batch-request-output.html)
 
   Gecoode
 
