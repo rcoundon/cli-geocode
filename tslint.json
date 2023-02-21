@@ -1,0 +1,7 @@
+{
+  "import-blacklist": [
+    true,
+    "@aws-sdk",
+    "aws-sdk"
+  ]
+}
