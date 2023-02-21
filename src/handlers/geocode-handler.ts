@@ -32,6 +32,9 @@ export async function handleGeocodeFile(filename: string, apiKey: string | null,
   mkdirSync('temp', {
     recursive: true,
   });
+  mkdirSync('output', {
+    recursive: true,
+  });
   progressBar = new SingleBar({
     format: 'CLI Progress |' + colors.cyan('{bar}') + '| {percentage}% || Status: {status}',
     barCompleteChar: '\u2588',
